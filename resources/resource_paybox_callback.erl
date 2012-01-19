@@ -48,7 +48,14 @@ allowed_methods(ReqData, Context) ->
     {['POST', 'GET'], ReqData, Context}.
 
 process_post(_ReqData, Context) ->
-    Error = z_context:get_q("error", Context), % E=The Error Code of teh transaction
+    %%% ./modulev2.cgi PBX_MODE=4 PBX_SITE=00001 PBX_RANG=99 PBX_IDENTIFIANT=123456789 PBX_DEVISE=978 
+    %%% PBX_PORTEUR=example@example.com PBX_CMD=0001 PBX_TOTAL=1000 PBX_RETOUR='amount:M;error:E;reference:R;transaction:T;status:O';
+    %%% PBX_EFFECTUE=example.com/paybox/success PBX_REFUSE=example.com/paybox/failure PBX_ANNULE=example.com/paybox/cancelled PBX_LANGUE=FRA
+    %%% PBX_TXT='<p>Some HTML to be displayed on the payment page</p>' PBX_REPONDRE_A=example.com/paybox/callback
+    %%% Note, PayBox uses its own language codes: en=GBR fr=FRA es=ESP de=DEU nl=NLD it=ITA
+    %%% Total is the value of the transaction in cents.
+    %%% PBX_DEVISE is the currency: 978=EUR, 840=USD, 952=CFA  
+    Error = z_context:get_q("error", Context), % E=The Error Code of the transaction
     Amount = z_context:get_q("amount", Context), %M=Value of Order
     OrderReference = z_context:get_q("reference", Context), % R=Order Reference
     Transaction = z_context:get_q("transaction", Context), %T=Transaction identifier

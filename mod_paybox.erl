@@ -22,3 +22,12 @@
 
 -mod_title("PayBox").
 -mod_description("Integration with PayBox Payment Processing. For taking online payments in France.").
+
+%% interface functions
+-export([
+    event/2
+]).
+
+event({submit, {make_payment, Args}, TriggerId, _TargetId}, Context) ->
+    {amount, Amount} = proplists:lookup(amount, Args),
+    Context.

@@ -36,7 +36,11 @@
 make_payment(OrderNumber, Context) ->
     Host = Context#context.host,
     HostName = m_config:get_value(site, hostname, Context),
-    Language = m_config:get_value(?MODULE, paybox_language, 'fra', Context),
+    Language = m_config:get_value(?MODULE, paybox_language, <<"fra">>, Context),
+    AuthOnly = case m_config:get_value(?MODULE, paybox_test_mode, true, Context) of
+        true -> <<"O">>;
+        false -> <<"N">>
+    end,
 
     %%% If any of Site, Identifier or Rang is undefiend we can't process the payment
     Site = m_config:get_value(?MODULE, paybox_site, undefined, Context),
@@ -44,7 +48,6 @@ make_payment(OrderNumber, Context) ->
     Rang = m_config:get_value(?MODULE, paybox_rang, undefined, Context),
     
     Order = m_paybox_order:get(OrderNumber, Context),
-    io:format("Order: ~p~n", [Order]),
     {email, Email} = proplists:lookup(email, Order),
     {order_total, OrderTotal} = proplists:lookup(order_total, Order),
     Amount = integer_to_list(OrderTotal),
@@ -59,15 +62,15 @@ make_payment(OrderNumber, Context) ->
             FailedUrl = binary_to_list(m_config:get_value(?MODULE, paybox_failed_url, <<"/paybox/failure">>, Context)),
             CancelledUrl =binary_to_list( m_config:get_value(?MODULE, paybox_cancelled_url, <<"/paybox/cancelled">>, Context)),
             
-            Parameters = io_lib:format("PBX_MODE=4 PBX_SITE=~s PBX_RANG=~s PBX_IDENTIFIANT=~s PBX_DEVISE=~s "
-                                       "PBX_PORTEUR='~s' PBX_CMD=~s PBX_TOTAL=~s "
-                                       "PBX_RETOUR='amount:M;error:E;reference:R;transaction:T;status:O'; "
-                                       "PBX_EFFECTUE='~s~s' PBX_REFUSE='~s~s' PBX_ANNULE='~s~s' "
-                                       "PBX_LANGUE=~s PBX_REPONDRE_A='~s~s' ", [Site, Rang, Identifier, Currency, Email, OrderId, Amount, HostName, SuccessUrl, HostName, FailedUrl, HostName, CancelledUrl, Language, HostName, ReturnUrl]),
+            Parameters = io_lib:format("PBX_RUF1=POST PBX_MODE=4 PBX_AUTOSEULE=~s PBX_SITE=~s PBX_RANG=~s PBX_IDENTIFIANT=~s PBX_DEVISE=~s "
+                                       "PBX_PORTEUR=~s PBX_CMD=~s PBX_TOTAL=~s "
+                                       "PBX_EFFECTUE=http://~s~s PBX_REFUSE=http://~s~s PBX_ANNULE=http://~s~s "
+                                       "PBX_LANGUE=~s PBX_REPONDRE_A=http://~s~s "
+                                       "PBX_RETOUR='amount:M;error:E;reference:R;transaction:T;status:F;authorization:A;signature:K;guaranteed:G'; ", [AuthOnly, Site, Rang, Identifier, Currency, Email, OrderId, Amount, HostName, SuccessUrl, HostName, FailedUrl, HostName, CancelledUrl, Language, HostName, ReturnUrl]),
             Command = io_lib:format("~s ~s", [filename:join([z_utils:lib_dir(priv), "sites", Host, "deps", "modulev2.cgi"]), Parameters]),
             RedirectCode = list_to_binary(os:cmd(Command)),
             m_paybox_order:set_redirect_code(OrderNumber, RedirectCode, Context),
-            io:format("Result: ~s~n", [RedirectCode]),
+            %io:format("Parameters: ~s~n", [Parameters]),
             z_render:wire({redirect, [{dispatch, paybox_redirect}, {order_number, OrderNumber}]}, Context)
     end.
 

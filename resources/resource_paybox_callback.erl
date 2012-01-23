@@ -20,7 +20,6 @@
 
 -module(resource_paybox_callback).
 -author("Michael Connors <michael@bring42.net>").
--export([init/1]).
 
 -export([
          init/1,
@@ -45,20 +44,29 @@ content_types_provided(ReqData, Context) ->
     {[{"text/html", response}], ReqData, Context}.
 
 allowed_methods(ReqData, Context) ->
-    {['POST', 'GET'], ReqData, Context}.
+    {['POST'], ReqData, Context}.
 
 process_post(_ReqData, Context) ->
-    %%% ./modulev2.cgi PBX_MODE=4 PBX_SITE=00001 PBX_RANG=99 PBX_IDENTIFIANT=123456789 PBX_DEVISE=978 
-    %%% PBX_PORTEUR=example@example.com PBX_CMD=0001 PBX_TOTAL=1000 PBX_RETOUR='amount:M;error:E;reference:R;transaction:T;status:O';
-    %%% PBX_EFFECTUE=example.com/paybox/success PBX_REFUSE=example.com/paybox/failure PBX_ANNULE=example.com/paybox/cancelled PBX_LANGUE=FRA
-    %%% PBX_TXT='<p>Some HTML to be displayed on the payment page</p>' PBX_REPONDRE_A=example.com/paybox/callback
-    %%% Note, PayBox uses its own language codes: en=GBR fr=FRA es=ESP de=DEU nl=NLD it=ITA
-    %%% Total is the value of the transaction in cents.
-    %%% PBX_DEVISE is the currency: 978=EUR, 840=USD, 952=CFA  
     Error = z_context:get_q("error", Context), % E=The Error Code of the transaction
     Amount = z_context:get_q("amount", Context), %M=Value of Order
     OrderReference = z_context:get_q("reference", Context), % R=Order Reference
     Transaction = z_context:get_q("transaction", Context), %T=Transaction identifier
     Status = z_context:get_q("status", Context), %% O=Status - possible values: Y=success N=Failed A=Attempts processing performed
+    Authorization = z_context:get_q("authorization", Context), 
+    Signature = z_context:get_q("signature", Context), 
+    Guaranteed = z_context:get_q("guaranteed", Context), 
+    io:format("Error: ~s~n", [Error]),
+    io:format("Amount: ~s~n", [Amount]),
+    io:format("OrderReference: ~s~n", [OrderReference]),
+    io:format("Transaction: ~s~n", [Transaction]),
+    io:format("Status: ~s~n", [Status]),
+    io:format("Authorization: ~s~n", [Authorization]),
+    io:format("Signature: ~s~n", [Signature]),
+    io:format("Guaranteed: ~s~n", [Guaranteed]),
+    case {Error} of
+        {00000} ->
+            m_paybox_order:set_paid(OrderReference);
+        _ -> error
+    end,
     ?WM_REPLY(true, Context).
 

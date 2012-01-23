@@ -4,15 +4,27 @@
 
 {% block content %}
 
-    <h1>{_ Run a Test Transaction Using Button _}</h1>
+   <h1>Create a Test Order! </h1>
+    {% wire id="my-order-form" type="submit" postback={create_order_example} delegate="mod_paybox" %}
+    <form id="my-order-form" method="post" action="postback" delegate="mod_paybox" postback="create_order_example">
+        <fieldset class="zp-100">
+            <div class="zp-30">
+                <div class="form-item">
+                    <label for="email">{_ Email Address _}</label>
+                    <input type="text" id="email" name="email" />
+                    {% validate id="email" type={presence} type={email} %}
+                </div>
+                <div class="form-item">
+                    <label for="product">{_ Product Id (1 costs 10 Euro, 2 costs 20 Euro ) _}</label>
+                    <input type="text" id="product" name="product" value="1" />
+                    {% validate id="product" type={presence}  %}
+                </div>
+                <div class="form-item">
+                    <button id="mybutton" type="submit">Pay Now</button>
+                </div>
+        </fieldset>
+    </form>   
 
-    {% button text="Pay €10"  postback={make_payment amount="1000" email="connorsml@gmail.com" order_number="0001234"} delegate="mod_paybox" %}
-
-    <h1>{_ Run a Test Transaction Using a Wire _}</h1>
-    {% wire id="myform" type="submit" postback={make_payment amount="2000" email="connorsml@gmail.com" order_number="0001234"} delegate="mod_paybox" %}
-    <form id="myform" method="post" action="postback" delegate="mod_paybox" postback="make_payment">
-      <button id="mybutton" type="submit">Pay €20</button>
-    </form>
 
 {% endblock %}
 

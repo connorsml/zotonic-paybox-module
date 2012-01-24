@@ -61,16 +61,17 @@ make_payment(OrderNumber, Context) ->
             SuccessUrl = binary_to_list(m_config:get_value(?MODULE, paybox_success_url, <<"/paybox/success">>, Context)),
             FailedUrl = binary_to_list(m_config:get_value(?MODULE, paybox_failed_url, <<"/paybox/failure">>, Context)),
             CancelledUrl =binary_to_list( m_config:get_value(?MODULE, paybox_cancelled_url, <<"/paybox/cancelled">>, Context)),
-            
+            PBXRetour = "amount:M;error:E;reference:R;transaction:T;status:F;authorization:A;guaranteed:G;signature:K",
             Parameters = io_lib:format("PBX_RUF1=POST PBX_MODE=4 PBX_AUTOSEULE=~s PBX_SITE=~s PBX_RANG=~s PBX_IDENTIFIANT=~s PBX_DEVISE=~s "
                                        "PBX_PORTEUR=~s PBX_CMD=~s PBX_TOTAL=~s "
                                        "PBX_EFFECTUE=http://~s~s PBX_REFUSE=http://~s~s PBX_ANNULE=http://~s~s "
                                        "PBX_LANGUE=~s PBX_REPONDRE_A=http://~s~s "
-                                       "PBX_RETOUR='amount:M;error:E;reference:R;transaction:T;status:F;authorization:A;signature:K;guaranteed:G'; ", [AuthOnly, Site, Rang, Identifier, Currency, Email, OrderId, Amount, HostName, SuccessUrl, HostName, FailedUrl, HostName, CancelledUrl, Language, HostName, ReturnUrl]),
+                                       "PBX_RETOUR='~s'; ", [AuthOnly, Site, Rang, Identifier, Currency, Email, OrderId, Amount, HostName, SuccessUrl, HostName, FailedUrl, HostName, CancelledUrl, Language, HostName, ReturnUrl, PBXRetour]),
             Command = io_lib:format("~s ~s", [filename:join([z_utils:lib_dir(priv), "sites", Host, "deps", "modulev2.cgi"]), Parameters]),
             RedirectCode = list_to_binary(os:cmd(Command)),
-            m_paybox_order:set_redirect_code(OrderNumber, RedirectCode, Context),
-            %io:format("Parameters: ~s~n", [Parameters]),
+            %m_paybox_order:set_redirect_code(OrderNumber, RedirectCode, Context),
+            m_paybox_order:set_post_order_data(OrderNumber, RedirectCode, PBXRetour, Context),
+            io:format("Parameters: ~s~n", [Parameters]),
             z_render:wire({redirect, [{dispatch, paybox_redirect}, {order_number, OrderNumber}]}, Context)
     end.
 
@@ -88,14 +89,14 @@ event({submit, {create_order_example, Args}, TriggerId, _TargetId}, Context) ->
     Email = z_context:get_q_validated("email", Context),
     case Product of
         "1" -> 
-            case m_paybox_order:insert(Email, "10 Euro worth of stuff!", 1000, undefined, undefined, "", Context) of
+            case m_paybox_order:insert(Email, "1 Euro worth of stuff!", 100, undefined, undefined, "", Context) of
                 {ok, OrderId} ->
                     make_payment(OrderId, Context);
                 {error, _} ->
                     Context
             end;
         "2" -> 
-            case m_paybox_order:insert(Email, "20 Euro worth of stuff!", 2000, undefined, undefined, undefined, Context) of
+            case m_paybox_order:insert(Email, "2 Euro worth of stuff!", 200, undefined, undefined, undefined, Context) of
                 {ok, OrderId} ->
                     make_payment(OrderId, Context);
                 {error, _} ->
@@ -103,20 +104,6 @@ event({submit, {create_order_example, Args}, TriggerId, _TargetId}, Context) ->
             end;
         _Others -> Context
     end.
-
-
-%event({submit, {make_payment_new_order, Args}, TriggerId, _TargetId}, Context) ->
-%    {amount, Amount} = proplists:lookup(amount, Args),
-%    {order_number, OrderNumber} = proplists:lookup(order_number, Args),
-%    {email, Email} = proplists:lookup(email, Args),
-%    make_payment(Amount, OrderNumber, Email, Context);
-%
-%
-%event({postback, {make_payment_new_order, Args}, TriggerId, _TargetId}, Context) ->
-%    {amount, Amount} = proplists:lookup(amount, Args),
-%    {order_description, OrderDescription} = proplists:lookup(order_number, Args),
-%    {email, Email} = proplists:lookup(email, Args),
-%    make_payment(Amount, OrderNumber, Email, Context).
 
 %% @doc Check the installation of the paybox table.
 %% in the default installer, this module installs a different table.
@@ -143,6 +130,7 @@ install_paybox_order_table(false, Context) ->
             order_description text not null default ''::character varying,
             paid boolean not null default 'f',
             redirect_page bytea,
+            signed_data text,
             created timestamp with time zone not null default now(),
             
             constraint paybox_order_pkey primary key (id),

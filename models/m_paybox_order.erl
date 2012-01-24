@@ -33,6 +33,7 @@
     insert/7,
 
     set_redirect_code/3,
+    set_post_order_data/4,
     set_paid/2
 ]).
 
@@ -86,9 +87,17 @@ insert(Email, OrderDescription, OrderTotal, ExtraInfoRscId, UserId, ShippingAddr
             Error
     end.
 
+%% Fix this to handle errors properly
+set_paid(OrderId, Context) when is_list(OrderId) ->
+    set_paid(list_to_integer(OrderId), Context);
 set_paid(OrderId, Context) ->
+    z_db:update(paybox_order, OrderId, [{paid, true}], Context),
     ok.
 
 set_redirect_code(OrderId, Code, Context) ->
     z_db:update(paybox_order, OrderId, [{redirect_page, Code}], Context),
+    ok.
+
+set_post_order_data(OrderId, Code, SignedData, Context) ->
+    z_db:update(paybox_order, OrderId, [{redirect_page, Code}, {signed_data, SignedData}], Context),
     ok.

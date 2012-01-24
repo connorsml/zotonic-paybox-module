@@ -15,7 +15,7 @@
                     {% validate id="email" type={presence} type={email} %}
                 </div>
                 <div class="form-item">
-                    <label for="product">{_ Product Id (1 costs 10 Euro, 2 costs 20 Euro ) _}</label>
+                    <label for="product">{_ Product Id (1 costs 1 Euro, 2 costs 2 Euro ) _}</label>
                     <input type="text" id="product" name="product" value="1" />
                     {% validate id="product" type={presence}  %}
                 </div>

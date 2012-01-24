@@ -30,7 +30,8 @@
 
 %% interface functions
 -export([
-    event/2
+    event/2,
+    make_payment/2
 ]).
 
 make_payment(OrderNumber, Context) ->

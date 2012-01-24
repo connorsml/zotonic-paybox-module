@@ -48,9 +48,7 @@ allowed_methods(ReqData, Context) ->
     {['POST', 'GET'], ReqData, Context}.
 
 handle_request(Method, ReqData, Context) ->
-    io:format("ReqData: ~p~n", [ReqData]),
     OrigIP = z_context:get_req_header("X-Forwarded-For", Context),
-
     case lists:member(OrigIP, ["195.101.99.76", "194.2.122.158", "195.25.7.166"]) of
         true ->
             Host = Context#context.host,
@@ -63,31 +61,45 @@ handle_request(Method, ReqData, Context) ->
             Signature = z_context:get_q("signature", Context),
             DecodedSignature = list_to_binary(z_utils:url_decode(Signature)),
             Guaranteed = z_context:get_q("guaranteed", Context),
-            io:format("Error: ~s~n", [Error]),
-            io:format("Amount: ~s~n", [Amount]),
-            io:format("OrderReference: ~s~n", [OrderReference]),
-            io:format("Transaction: ~s~n", [Transaction]),
-            io:format("Status: ~s~n", [Status]),
-            io:format("Authorization: ~s~n", [Authorization]),
-            io:format("Guaranteed: ~s~n", [Guaranteed]),
+            %io:format("Error: ~s~n", [Error]),
+            %io:format("Amount: ~s~n", [Amount]),
+            %io:format("OrderReference: ~s~n", [OrderReference]),
+            %io:format("Transaction: ~s~n", [Transaction]),
+            %io:format("Status: ~s~n", [Status]),
+            %io:format("Authorization: ~s~n", [Authorization]),
+            %io:format("Guaranteed: ~s~n", [Guaranteed]),
+
+            %%% To do: Learn more about the Authorization code from the bank
+            %%% Consider specific ways of handling unsuccessful payment (maybe?)
             case {Error} of
-                {"00000"} ->
-                    KeyLocation = io_lib:format("~s", [filename:join([z_utils:lib_dir(priv), "sites", Host, "deps", "pubkey.pem"])]),
-                    {ok, PemBin} = file:read_file(KeyLocation),
-                    PemEntries = public_key:pem_decode(PemBin),
-                    RSAPubKey = public_key:pem_entry_decode(hd(PemEntries)),
-                    %%% TODO: Figure out what is signed, and verify the signature
-                    %%% TODO: Verify that tha amount is the same as the amount on the order        
-                    %case public_key:verify(binary:list_to_bin(Error), sha, Signature, RSAPubKey) of
-                    %    true -> io:format("true");
-                    %    false -> io:format("false")
-                    %end,
-                    io:format("t3~n"),
-                    Order = m_paybox_order:get(OrderReference, Context),
+                {"00000"} -> %% Error 00000 means success/no error
+                    Order = m_paybox_order:get(list_to_integer(OrderReference), Context),
                     {order_total, OrderTotal} = proplists:lookup(order_total, Order),
-                    m_paybox_order:set_paid(OrderReference, Context),
-                    ReqData1 = wrq:set_resp_body("", ReqData),
-                    {{halt, 200}, ReqData1, Context};
+                    case list_to_integer(Amount) of %% Check that the amount is correct as per the order
+                        OrderTotal ->
+                            KeyLocation = io_lib:format("~s", [filename:join([z_utils:lib_dir(priv), "sites", Host, "deps", "pubkey.pem"])]),
+                            {ok, PemBin} = file:read_file(KeyLocation),
+                            PemEntries = public_key:pem_decode(PemBin),
+                            RSAPubKey = public_key:pem_entry_decode(hd(PemEntries)),
+                            %%% TODO: Figure out what is signed, and verify the signature
+                            {signed_data, SignedData} = proplists:lookup(signed_data, Order),
+                            io:format("SignedData: ~p~n", [SignedData]),
+                            io:format("SignedData: ~p~n", [z_utils:url_encode(binary_to_list(SignedData))]),
+                            io:format("Signature: ~p~n", [binary:list_to_bin(Signature)]),
+                            io:format("PubKey: ~p~n", [RSAPubKey]),
+                            case public_key:verify(SignedData, sha, binary:list_to_bin(Signature), RSAPubKey) of
+                                true -> io:format("true");
+                                false -> io:format("false")
+                            end,
+                            Order = m_paybox_order:get(OrderReference, Context),
+                            {order_total, OrderTotal} = proplists:lookup(order_total, Order),
+                            m_paybox_order:set_paid(OrderReference, Transaction, Context),
+                            ReqData1 = wrq:set_resp_body("", ReqData),
+                            {{halt, 200}, ReqData1, Context};
+                        _Other -> 
+                            ReqData1 = wrq:set_resp_body("", ReqData),
+                            {{halt, 403}, ReqData1, Context} %% Something very wrong here, different amounts
+                    end; 
                 _ -> 
                     ReqData1 = wrq:set_resp_body("", ReqData),
                     {{halt, 200}, ReqData1, Context}

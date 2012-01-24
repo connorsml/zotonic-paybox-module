@@ -69,9 +69,8 @@ make_payment(OrderNumber, Context) ->
                                        "PBX_RETOUR='~s'; ", [AuthOnly, Site, Rang, Identifier, Currency, Email, OrderId, Amount, HostName, SuccessUrl, HostName, FailedUrl, HostName, CancelledUrl, Language, HostName, ReturnUrl, PBXRetour]),
             Command = io_lib:format("~s ~s", [filename:join([z_utils:lib_dir(priv), "sites", Host, "deps", "modulev2.cgi"]), Parameters]),
             RedirectCode = list_to_binary(os:cmd(Command)),
-            %m_paybox_order:set_redirect_code(OrderNumber, RedirectCode, Context),
             m_paybox_order:set_post_order_data(OrderNumber, RedirectCode, PBXRetour, Context),
-            io:format("Parameters: ~s~n", [Parameters]),
+            %io:format("Parameters: ~s~n", [Parameters]),
             z_render:wire({redirect, [{dispatch, paybox_redirect}, {order_number, OrderNumber}]}, Context)
     end.
 
@@ -122,6 +121,7 @@ install_paybox_order_table(false, Context) ->
     z_db:q("
         create table paybox_order (
             id serial not null,
+            transaction_id text,
             user_id int,
             extra_info_rsc_id int,
             order_total int not null default 0,

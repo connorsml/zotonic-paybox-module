@@ -34,7 +34,7 @@
 
     set_redirect_code/3,
     set_post_order_data/4,
-    set_paid/2
+    set_paid/3
 ]).
 
 -include_lib("zotonic.hrl").
@@ -88,10 +88,10 @@ insert(Email, OrderDescription, OrderTotal, ExtraInfoRscId, UserId, ShippingAddr
     end.
 
 %% Fix this to handle errors properly
-set_paid(OrderId, Context) when is_list(OrderId) ->
-    set_paid(list_to_integer(OrderId), Context);
-set_paid(OrderId, Context) ->
-    z_db:update(paybox_order, OrderId, [{paid, true}], Context),
+set_paid(OrderId, TransactionId, Context) when is_list(OrderId) ->
+    set_paid(list_to_integer(OrderId), TransactionId, Context);
+set_paid(OrderId, TransactionId, Context) ->
+    z_db:update(paybox_order, OrderId, [{paid, true}, {transaction_id, TransactionId}], Context),
     ok.
 
 set_redirect_code(OrderId, Code, Context) ->

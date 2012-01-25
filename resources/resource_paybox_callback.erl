@@ -48,6 +48,8 @@ allowed_methods(ReqData, Context) ->
     {['POST', 'GET'], ReqData, Context}.
 
 handle_request(Method, ReqData, Context) ->
+    {Result, _Rest} = wrq:req_body(z_context:get_reqdata(Context)),
+    io:format("Result: ~p~n", [Result]),
     OrigIP = z_context:get_req_header("X-Forwarded-For", Context),
     case lists:member(OrigIP, ["195.101.99.76", "194.2.122.158", "195.25.7.166"]) of
         true ->
@@ -68,9 +70,9 @@ handle_request(Method, ReqData, Context) ->
             %io:format("Status: ~s~n", [Status]),
             %io:format("Authorization: ~s~n", [Authorization]),
             %io:format("Guaranteed: ~s~n", [Guaranteed]),
-
+      
             %%% To do: Learn more about the Authorization code from the bank
-            %%% Consider specific ways of handling unsuccessful payment (maybe?)
+
             case {Error} of
                 {"00000"} -> %% Error 00000 means success/no error
                     Order = m_paybox_order:get(list_to_integer(OrderReference), Context),
@@ -81,16 +83,11 @@ handle_request(Method, ReqData, Context) ->
                             {ok, PemBin} = file:read_file(KeyLocation),
                             PemEntries = public_key:pem_decode(PemBin),
                             RSAPubKey = public_key:pem_entry_decode(hd(PemEntries)),
-                            %%% TODO: Figure out what is signed, and verify the signature
-                            {signed_data, SignedData} = proplists:lookup(signed_data, Order),
-                            io:format("SignedData: ~p~n", [SignedData]),
-                            io:format("SignedData: ~p~n", [z_utils:url_encode(binary_to_list(SignedData))]),
-                            io:format("Signature: ~p~n", [binary:list_to_bin(Signature)]),
-                            io:format("PubKey: ~p~n", [RSAPubKey]),
-                            case public_key:verify(SignedData, sha, binary:list_to_bin(Signature), RSAPubKey) of
-                                true -> io:format("true");
-                                false -> io:format("false")
-                            end,
+                            %%% TODO: Split SignedData out of Result and verify
+                            %case public_key:verify(SignedData, sha, base64:decode(binary:list_to_bin(Signature)), RSAPubKey) of
+                            %    true -> io:format("true");
+                            %    false -> io:format("false")
+                            %end,
                             Order = m_paybox_order:get(OrderReference, Context),
                             {order_total, OrderTotal} = proplists:lookup(order_total, Order),
                             m_paybox_order:set_paid(OrderReference, Transaction, Context),

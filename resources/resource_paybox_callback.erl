@@ -49,7 +49,7 @@ allowed_methods(ReqData, Context) ->
 
 handle_request(Method, ReqData, Context) ->
     {Result, _Rest} = wrq:req_body(z_context:get_reqdata(Context)),
-    io:format("Result: ~p~n", [Result]),
+    SignedData = lists:last(lists:reverse(binary:split(Result, <<"&signature=">>))),
     OrigIP = z_context:get_req_header("X-Forwarded-For", Context),
     case lists:member(OrigIP, ["195.101.99.76", "194.2.122.158", "195.25.7.166"]) of
         true ->
@@ -83,18 +83,21 @@ handle_request(Method, ReqData, Context) ->
                             {ok, PemBin} = file:read_file(KeyLocation),
                             PemEntries = public_key:pem_decode(PemBin),
                             RSAPubKey = public_key:pem_entry_decode(hd(PemEntries)),
-                            %%% TODO: Split SignedData out of Result and verify
-                            %case public_key:verify(SignedData, sha, base64:decode(binary:list_to_bin(Signature)), RSAPubKey) of
-                            %    true -> io:format("true");
-                            %    false -> io:format("false")
-                            %end,
-                            Order = m_paybox_order:get(OrderReference, Context),
-                            {order_total, OrderTotal} = proplists:lookup(order_total, Order),
-                            m_paybox_order:set_paid(OrderReference, Transaction, Context),
-                            ReqData1 = wrq:set_resp_body("", ReqData),
-                            {{halt, 200}, ReqData1, Context};
+
+                            case public_key:verify(SignedData, sha, base64:decode(binary:list_to_bin(Signature)), RSAPubKey) of
+                                true -> 
+                                    Order = m_paybox_order:get(OrderReference, Context),
+                                    {order_total, OrderTotal} = proplists:lookup(order_total, Order),
+                                    m_paybox_order:set_paid(OrderReference, Transaction, Context),
+                                    ReqData1 = wrq:set_resp_body("", ReqData),
+                                    {{halt, 200}, ReqData1, Context};
+                                false ->
+                                    ReqData1 = wrq:set_resp_body("NOT AUTHORIZED", ReqData), 
+                                    {{halt, 403}, ReqData1, Context}  %% Signatures don't match
+                            end;
+
                         _Other -> 
-                            ReqData1 = wrq:set_resp_body("", ReqData),
+                            ReqData1 = wrq:set_resp_body("NOT AUTHORIZED", ReqData),
                             {{halt, 403}, ReqData1, Context} %% Something very wrong here, different amounts
                     end; 
                 _ -> 
@@ -102,7 +105,6 @@ handle_request(Method, ReqData, Context) ->
                     {{halt, 200}, ReqData1, Context}
             end;
         false ->
-            io:format("forbidden"),
             ReqData1 = wrq:set_resp_body("NOT AUTHORIZED", ReqData),
             {{halt, 403}, ReqData1, Context}
     end.

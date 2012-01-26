@@ -92,6 +92,7 @@ set_paid(OrderId, TransactionId, Context) when is_list(OrderId) ->
     set_paid(list_to_integer(OrderId), TransactionId, Context);
 set_paid(OrderId, TransactionId, Context) ->
     z_db:update(paybox_order, OrderId, [{paid, true}, {transaction_id, TransactionId}], Context),
+    z_notifier:notify({paybox_order_paid, OrderId}, Context),
     ok.
 
 set_redirect_code(OrderId, Code, Context) ->

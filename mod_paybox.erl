@@ -39,8 +39,8 @@ make_payment(OrderNumber, Context) ->
     HostName = m_config:get_value(site, hostname, Context),
     Language = m_config:get_value(?MODULE, paybox_language, <<"fra">>, Context),
     AuthOnly = case m_config:get_value(?MODULE, paybox_test_mode, true, Context) of
-        true -> <<"O">>;
-        false -> <<"N">>
+        <<"true">> -> <<"O">>;
+        <<"false">> -> <<"N">>
     end,
 
     %%% If any of Site, Identifier or Rang is undefiend we can't process the payment

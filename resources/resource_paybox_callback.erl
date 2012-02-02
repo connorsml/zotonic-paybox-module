@@ -80,7 +80,7 @@ handle_request(Method, ReqData, Context) ->
                     Order = m_paybox_order:get(list_to_integer(OrderReference), Context),
                     {order_total, OrderTotal} = proplists:lookup(order_total, Order),
                     case list_to_integer(Amount) of %% Check that the amount is correct as per the order
-                        OrderTotal ->
+                        OrderTotal -> %% OrderTotal is not a new variable, I am matching against the previous order total on purpose
                             KeyLocation = io_lib:format("~s", [filename:join([z_utils:lib_dir(priv), "sites", Host, "deps", "pubkey.pem"])]),
                             {ok, PemBin} = file:read_file(KeyLocation),
                             PemEntries = public_key:pem_decode(PemBin),
@@ -90,7 +90,7 @@ handle_request(Method, ReqData, Context) ->
                                 true -> 
                                     Order = m_paybox_order:get(OrderReference, Context),
                                     {order_total, OrderTotal} = proplists:lookup(order_total, Order),
-                                    m_paybox_order:set_paid(OrderReference, Transaction, Context),
+                                    m_paybox_order:set_paid(OrderReference, Transaction, SignedData, Context),
                                     ReqData1 = wrq:set_resp_body("", ReqData),
                                     {{halt, 200}, ReqData1, Context};
                                 false ->

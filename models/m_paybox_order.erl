@@ -91,7 +91,7 @@ insert(Email, OrderDescription, OrderTotal, ExtraInfoRscId, UserId, ShippingAddr
 set_paid(OrderId, TransactionId, SignedData, Context) when is_list(OrderId) ->
     set_paid(list_to_integer(OrderId), TransactionId, SignedData, Context);
 set_paid(OrderId, TransactionId, SignedData, Context) ->
-    z_db:update(paybox_order, OrderId, [{paid, true}, {transaction_id, TransactionId}], Context),
+    z_db:update(paybox_order, OrderId, [{paid, true}, {transaction_id, TransactionId}, {signed_data, SignedData}], Context),
     z_notifier:notify({paybox_order_paid, OrderId}, Context),
     ok.
 

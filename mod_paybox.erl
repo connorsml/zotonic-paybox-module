@@ -38,7 +38,7 @@ make_payment(OrderNumber, Context) ->
     Host = Context#context.host,
     HostName = m_config:get_value(site, hostname, Context),
     Language = m_config:get_value(?MODULE, paybox_language, <<"fra">>, Context),
-    AuthOnly = case m_config:get_value(?MODULE, paybox_test_mode, true, Context) of
+    AuthOnly = case m_config:get_value(?MODULE, paybox_test_mode, <<"true">>, Context) of
         <<"true">> -> <<"O">>;
         <<"false">> -> <<"N">>
     end,

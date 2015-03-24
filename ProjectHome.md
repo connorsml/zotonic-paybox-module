@@ -1,0 +1,1 @@
+This module provides integration with the PayBox payment processing system.
